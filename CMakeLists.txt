@@ -16,15 +16,22 @@ set ( ${PROJECT_NAME}_DEPS
 staticlib_pkg_check_modules ( ${PROJECT_NAME}_DEPS_PC REQUIRED ${PROJECT_NAME}_DEPS )
 
 # library
+configure_file ( ${WILTON_DIR}/resources/buildres/wilton_module.rc
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.rc )
+
 add_library ( ${PROJECT_NAME} SHARED
         ${CMAKE_CURRENT_LIST_DIR}/src/chakra_engine.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/src/wiltoncall_chakra.cpp )
+        ${CMAKE_CURRENT_LIST_DIR}/src/wiltoncall_chakra.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.rc
+        ${CMAKE_CURRENT_LIST_DIR}/resources/${PROJECT_NAME}.def )
 
-target_link_libraries ( ${PROJECT_NAME} PRIVATE
+target_link_libraries ( ${PROJECT_NAME} PRIVATE       
         wilton_core
         wilton_loader
         wilton_logging
-        ${${PROJECT_NAME}_DEPS_PC_LIBRARIES} )
+        ${${PROJECT_NAME}_DEPS_PC_LIBRARIES}
+        jsrt
+        wtsapi32 )
 
 target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE 
         ${CMAKE_CURRENT_LIST_DIR}/src
@@ -35,6 +42,8 @@ target_include_directories ( ${PROJECT_NAME} BEFORE PRIVATE
         ${${PROJECT_NAME}_DEPS_PC_INCLUDE_DIRS} )
         
 target_compile_options ( ${PROJECT_NAME} PRIVATE ${${PROJECT_NAME}_DEPS_PC_CFLAGS_OTHER} )
+
+set_property ( TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "/manifest:no" )
 
 # pkg-config
 set ( ${PROJECT_NAME}_PC_CFLAGS "-I${CMAKE_CURRENT_LIST_DIR}/include" )
