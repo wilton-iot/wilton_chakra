@@ -93,7 +93,25 @@ std::string format_stack_trace(JsErrorCode err) STATICLIB_NOEXCEPT {
     if (JsNoError != err_stack) {
         return default_msg;
     }
-    return jsval_to_string(stack_ref);
+    auto stack = jsval_to_string(stack_ref);
+    // filter and format
+    auto vec = sl::utils::split(stack, '\n');
+    auto res = std::string();
+    for (size_t i = 0; i < vec.size(); i++) {
+        auto& line = vec.at(i);
+        if(line.length() > 1 && !(std::string::npos != line.find("(wilton-requirejs/require.js:")) &&
+                !(std::string::npos != line.find("(wilton-require.js:"))) {
+            if (sl::utils::starts_with(line, "   at")) {
+                res.push_back(' ');
+            }
+            res += line;
+            res.push_back('\n');
+        }
+    }
+    if (res.length() > 0 && '\n' == res.back()) {
+        res.pop_back();
+    }
+    return res;
 }
 
 bool is_string_ref(JsValueRef val) {
@@ -105,11 +123,12 @@ bool is_string_ref(JsValueRef val) {
 }
 
 std::string eval_js(const char* code, const std::string& path) {
-   //static JsSourceContext src_ctx = 0;
     auto wcode = sl::utils::widen(code);
     auto wpath = sl::utils::widen(path);
+    auto hasher = std::hash<std::string>();
+    auto src_ctx = static_cast<JsSourceContext>(hasher(path));
     JsValueRef res = JS_INVALID_REFERENCE;
-    auto err = JsRunScript(wcode.c_str(), JS_SOURCE_CONTEXT_NONE, wpath.c_str(), std::addressof(res));
+    auto err = JsRunScript(wcode.c_str(), src_ctx, wpath.c_str(), std::addressof(res));
     if (JsErrorInExceptionState == err) {
         throw support::exception(TRACEMSG(format_stack_trace(err)));
     }
@@ -186,12 +205,12 @@ JsValueRef CALLBACK load_func(JsValueRef /* callee */, bool /* is_construct_call
         eval_js(code, path_short);
         wilton::support::log_debug("wilton.engine.chakra.eval", "Eval complete");
     } catch (const std::exception& e) {
-        auto msg = TRACEMSG(e.what() + "\nError loading script, path: [" + path + "]");
+        auto msg = TRACEMSG(e.what() + "\nError(e) loading script, path: [" + path + "]");
         auto err = create_error(msg);
         JsSetException(err);
         return JS_INVALID_REFERENCE;
     } catch (...) {
-        auto msg = TRACEMSG("Error loading script, path: [" + path + "]");
+        auto msg = TRACEMSG("Error(...) loading script, path: [" + path + "]");
         auto err = create_error(msg);
         JsSetException(err);
         return JS_INVALID_REFERENCE;
@@ -221,9 +240,7 @@ JsValueRef CALLBACK wiltoncall_func(JsValueRef /* callee */, bool /* is_construc
     if (nullptr == err) {
         if (nullptr != out) {
             JsValueRef res = JS_INVALID_REFERENCE;
-            // todo: non-copy API
-            auto out_str = std::string(out, out_len);
-            auto wout = sl::utils::widen(out_str);
+            auto wout = sl::utils::widen(out, static_cast<size_t>(out_len));
             auto err_str = JsPointerToString(wout.c_str(), wout.length(), std::addressof(res));
             if (JsNoError != err_str) {
                 // fallback
@@ -254,7 +271,7 @@ class chakra_engine::impl : public sl::pimpl::object::impl {
 public:
     ~impl() STATICLIB_NOEXCEPT {        
         if (nullptr != runtime) {
-            JsSetCurrentContext(JS_INVALID_REFERENCE);
+            JsDisableRuntimeExecution(runtime);
             JsDisposeRuntime(runtime);
         }
     }
@@ -287,9 +304,7 @@ public:
         if (JsNoError != err_global) throw support::exception(TRACEMSG(
                 "'JsGetGlobalObject' error, code: [" + sl::support::to_string(err_global) + "]"));
         JsValueRef cb_arg_ref = JS_INVALID_REFERENCE;
-        // todo: non-copy API
-        auto scb = std::string(callback_script_json.data(), callback_script_json.size());
-        auto wcb = sl::utils::widen(scb);
+        auto wcb = sl::utils::widen(callback_script_json.data(), callback_script_json.size());
         auto err_arg = JsPointerToString(wcb.c_str(), wcb.length(), std::addressof(cb_arg_ref));
         if (JsNoError != err_arg) throw support::exception(TRACEMSG(
                 "'JsCreateString' error, code: [" + sl::support::to_string(err_arg) + "]"));
@@ -318,6 +333,8 @@ public:
         args[1] = cb_arg_ref;
         JsValueRef res = JS_INVALID_REFERENCE;
         auto err_call = JsCallFunction(fun, args.data(), static_cast<unsigned short>(args.size()), std::addressof(res));
+        wilton::support::log_debug("wilton.engine.jsc.run",
+                "Callback run complete, result: [" + sl::support::to_string_bool(JsNoError == err_call) + "]");
         if (JsNoError != err_call) {
             throw support::exception(TRACEMSG(format_stack_trace(err_call)));
         }
