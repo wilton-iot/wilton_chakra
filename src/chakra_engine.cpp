@@ -360,10 +360,15 @@ public:
         }
         return support::make_null_buffer();
     }
+
+    void run_garbage_collector(chakra_engine&) {
+        // TODO, currently no-op
+    }
 };
 
 PIMPL_FORWARD_CONSTRUCTOR(chakra_engine, (sl::io::span<const char>), (), support::exception)
 PIMPL_FORWARD_METHOD(chakra_engine, support::buffer, run_callback_script, (sl::io::span<const char>), (), support::exception)
+PIMPL_FORWARD_METHOD(chakra_engine, void, run_garbage_collector, (), (), support::exception)
 
 } // namespace
 }
