@@ -287,6 +287,7 @@ class chakra_engine::impl : public sl::pimpl::object::impl {
 public:
     ~impl() STATICLIB_NOEXCEPT {        
         if (nullptr != runtime) {
+            JsSetCurrentContext(JS_INVALID_REFERENCE);
             JsDisableRuntimeExecution(runtime);
             JsDisposeRuntime(runtime);
         }
