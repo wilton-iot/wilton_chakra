@@ -196,7 +196,7 @@ JsValueRef CALLBACK print_func(JsValueRef /* callee */, bool /* is_construct_cal
 
 JsValueRef CALLBACK load_func(JsValueRef /* callee */, bool /* is_construct_call */,
         JsValueRef* args, unsigned short args_count, void* /* callback_state */) STATICLIB_NOEXCEPT {
-    std::string path = "";
+    auto path = std::string();
     try {
         // check args
         if (args_count < 2 || !is_string_ref(args[1])) {
@@ -204,7 +204,7 @@ JsValueRef CALLBACK load_func(JsValueRef /* callee */, bool /* is_construct_call
         }
 
         // load code
-        auto path = jsval_to_string(args[1]);
+        path = jsval_to_string(args[1]);
         char* code = nullptr;
         int code_len = 0;
         auto err_load = wilton_load_resource(path.c_str(), static_cast<int>(path.length()),
@@ -221,7 +221,7 @@ JsValueRef CALLBACK load_func(JsValueRef /* callee */, bool /* is_construct_call
         eval_js(code, path_short);
         wilton::support::log_debug("wilton.engine.chakra.eval", "Eval complete");
     } catch (const std::exception& e) {
-        auto msg = TRACEMSG(e.what() + "\nError(e) loading script, path: [" + path + "]");
+        auto msg = TRACEMSG(e.what() + "\nError loading script, path: [" + path + "]");
         auto err = create_error(msg);
         JsSetException(err);
         return JS_INVALID_REFERENCE;
