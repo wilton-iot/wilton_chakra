@@ -285,12 +285,10 @@ class chakra_engine::impl : public sl::pimpl::object::impl {
     JsRuntimeHandle runtime = JS_INVALID_RUNTIME_HANDLE;
 
 public:
-    ~impl() STATICLIB_NOEXCEPT {        
-        if (nullptr != runtime) {
-            JsSetCurrentContext(JS_INVALID_REFERENCE);
-            JsDisableRuntimeExecution(runtime);
-            JsDisposeRuntime(runtime);
-        }
+    ~impl() STATICLIB_NOEXCEPT {
+        JsSetCurrentContext(JS_INVALID_REFERENCE);
+        JsDisableRuntimeExecution(runtime);
+        JsDisposeRuntime(runtime);
     }
     
     impl(sl::io::span<const char> init_code) {
@@ -363,7 +361,9 @@ public:
     }
 
     void run_garbage_collector(chakra_engine&) {
-        // TODO, currently no-op
+        auto err = JsCollectGarbage(this->runtime);
+        if (JsNoError != err) throw support::exception(TRACEMSG(
+                "'JsCollectGarbage' error, code: [" + sl::support::to_string(err) + "]"));
     }
 };
 
