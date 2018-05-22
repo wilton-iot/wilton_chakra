@@ -87,7 +87,7 @@ private:
         }
     }
 
-    static uint64_t str_as_bool(const sl::json::field& fi, const std::string& name) {
+    static bool str_as_bool(const sl::json::field& fi, const std::string& name) {
         auto str = fi.as_string_nonempty_or_throw(name);
         if ("true" == str) {
             return true;
